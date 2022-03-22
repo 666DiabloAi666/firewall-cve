@@ -1,0 +1,32 @@
+from burp import ISessionHandlingAction
+from burp import IParameter
+
+class BurpExtender(IBurpExtender, ISessionHandlingAction):
+
+  def registerExtenderCallbacks(self, callbacks):
+    self._callbacks = callbacks
+    self._helpers = callbacks.getHelpers()
+    callbacks.setExtensionName("Bypass WAF")
+    callbacks.registerSessionHandlingAction(self)
+    return
+
+  def performAction(self, currentRequest, macroItems):
+    requestInfo = self._helpers.analyzeRequest(currentRequest)
+    headers = requestInfo.getHeaders()
+    reqBody = currentRequest.getRequest()[requestInfo.getBodyOffset():]
+    
+    # WAF Bypass IP
+    bypassip = '127.0.0.1'
+
+    # Add WAF Bypass headers
+    headers.add('x-originating-IP: '+bypassip)
+    headers.add('x-forwarded-for: '+bypassip)
+    headers.add('x-remote-IP: '+bypassip)
+    headers.add('x-remote-addr: '+bypassip)
+
+    # Build request with bypass headers
+    message = self._helpers.buildHttpMessage(headers, reqBody)
+
+    # Update Request with New Header
+    currentRequest.setRequest(message)
+    return 
